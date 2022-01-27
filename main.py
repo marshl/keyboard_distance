@@ -5,10 +5,11 @@ import argparse
 import dataclasses
 import enum
 import math
+import operator
 import os
+import shutil
+import urllib.request
 from typing import Tuple, List
-
-import requests
 
 WORD_FILE_PATH = "words.txt"
 SIMPLE_WORD_FILE_PATH = "words.simple.txt"
@@ -16,14 +17,18 @@ SIMPLE_WORD_FILE_PATH = "words.simple.txt"
 DEFAULT_KEY_SIZE_MM = 22  # millimetres
 
 
-class KeyboardType(enum.Enum):
+class KeyboardLayout(enum.Enum):
+    """
+    Enum for the different keyboard layouts
+    """
+
     QWERTY = "QWERTY"
     DVORAK = "DVORAK"
 
 
 KEYBOARD_LAYOUT_MAP = {
-    KeyboardType.QWERTY: ["qwertyuiop", "asdfghjkl", "zxcvbnm"],
-    KeyboardType.DVORAK: ["   pyfgcrl", "aoeuidhtns", " qjkxbmwvz"],
+    KeyboardLayout.QWERTY: ["qwertyuiop", "asdfghjkl", "zxcvbnm"],
+    KeyboardLayout.DVORAK: ["   pyfgcrl", "aoeuidhtns", " qjkxbmwvz"],
 }
 
 KEYBOARD_ROW_X_OFFSETS = [0, 0.25, 0.75]
@@ -35,8 +40,8 @@ class Position2D:
     A position in 2D space
     """
 
-    x: float
-    y: float
+    x: float  # pylint: disable=invalid-name
+    y: float  # pylint: disable=invalid-name
 
     def __sub__(self, other: "Position2D") -> "Position2D":
         """
@@ -107,7 +112,7 @@ class Position2D:
 
 
 def get_letter_position(
-    key: str, keyboard_type: KeyboardType = KeyboardType.QWERTY
+    key: str, keyboard_type: KeyboardLayout = KeyboardLayout.QWERTY
 ) -> Position2D:
     """
     Gets the Position2D of a key on a keyboard
@@ -133,8 +138,8 @@ def get_letter_position(
 get_letter_position.position_cache = {}
 
 
-def get_letter_distance(
-    key_1: str, key_2: str, keyboard_type=KeyboardType.QWERTY
+def get_key_position_distance(
+    key_1: str, key_2: str, keyboard_type=KeyboardLayout.QWERTY
 ) -> float:
     """
     Gets the distance between two different keys
@@ -143,19 +148,18 @@ def get_letter_distance(
     :param keyboard_type: The type of keyboard (qwerty, dvorak etc.)
     :return: The distance between the two keys
     """
-
-    distance = get_letter_distance.distance_cache.get((key_1, key_2))
+    distance = get_key_position_distance.distance_cache.get((key_1, key_2))
     if distance is not None:
         return distance
     distance = (
         get_letter_position(key_1, keyboard_type)
         - get_letter_position(key_2, keyboard_type)
     ).magnitude()
-    get_letter_distance.distance_cache[(key_1, key_2)] = distance
+    get_key_position_distance.distance_cache[(key_1, key_2)] = distance
     return distance
 
 
-get_letter_distance.distance_cache = {}
+get_key_position_distance.distance_cache = {}
 
 
 def is_simple_word(word: str) -> bool:
@@ -184,7 +188,7 @@ def keyboard_distance_to_cm(
 def get_word_traversal_length(
     word: str,
     include_same_letter_distance: bool = True,
-    keyboard_type=KeyboardType.QWERTY,
+    keyboard_type=KeyboardLayout.QWERTY,
 ) -> Tuple[float, float]:
     """
     Gets the
@@ -202,17 +206,16 @@ def get_word_traversal_length(
 
     total_length = 0
     gaps = 0
-    current_letter = word[0]
-    for next_letter in word[1:]:
-        total_length += get_letter_distance(
+    for current_letter, next_letter in zip(word, word[1:]):
+        total_length += get_key_position_distance(
             current_letter, next_letter, keyboard_type=keyboard_type
         )
 
         if next_letter != current_letter or include_same_letter_distance:
             gaps += 1
-        current_letter = next_letter
 
     return total_length, total_length / gaps
+
 
 
 def create_word_lists() -> None:
@@ -221,11 +224,10 @@ def create_word_lists() -> None:
     """
     if not os.path.exists(WORD_FILE_PATH):
         url = "https://raw.githubusercontent.com/dwyl/english-words/master/words.txt"
-        response = requests.get(url, stream=True)
-        with open(WORD_FILE_PATH, "wb") as output:
-            for chunk in response.iter_content(chunk_size=1024):
-                if chunk:
-                    output.write(chunk)
+        with urllib.request.urlopen(url) as response, open(
+            WORD_FILE_PATH, "wb"
+        ) as out_file:
+            shutil.copyfileobj(response, out_file)
 
     if not os.path.exists(SIMPLE_WORD_FILE_PATH):
         with open(WORD_FILE_PATH, encoding="utf-8") as file:
@@ -235,6 +237,20 @@ def create_word_lists() -> None:
                         output_file.write(word)
 
 
+def print_word_distance(word: str, total_length: float, relative_length: float) -> None:
+    """
+    Prints the distance for a single word
+    :param word:
+    :param total_length:
+    :param relative_length:
+    :return:
+    """
+    print(
+        f"{word}: total length: {keyboard_distance_to_cm(total_length)}cm "
+        f"relative length: {keyboard_distance_to_cm(relative_length)}cm"
+    )
+
+
 def main():
     """
     Entry point
@@ -242,14 +258,49 @@ def main():
     parser = argparse.ArgumentParser(
         description="Finds the distance of a word on the keyboard"
     )
-    parser.add_argument("words", type=str, nargs="+", help="words to get distances for")
+    parser.add_argument("words", type=str, nargs="*", help="words to get distances for")
     parser.add_argument(
-        "--largest",
-        dest="largest",
-        action="store_const",
-        const=sum,
-        default=max,
-        help="sum the integers (default: find the max)",
+        "--word-count",
+        dest="word_count",
+        action="store",
+        default=10,
+        help="The number of words to get",
+        type=int,
+    )
+
+    parser.add_argument(
+        "--larger-than",
+        dest="larger_than",
+        action="store",
+        default=4,
+        help="The minimum size of the word",
+        type=int,
+    )
+    parser.add_argument(
+        "--smaller-than",
+        dest="smaller_than",
+        action="store",
+        default=math.inf,
+        help="The maximum size of the word",
+        type=int,
+    )
+    parser.add_argument(
+        "--relative",
+        dest="relative",
+        action="store_true",
+        help="If set, relative distance will be measured instead of total distance",
+    )
+    parser.add_argument(
+        "--lowest-first",
+        dest="lowest_first",
+        action="store_true",
+        help="If set, lowest scores will be weighted higher",
+    )
+    parser.add_argument(
+        "--compare-angle",
+        dest="compare_angle",
+        action="store_true",
+        help="If set, angle between keys will be maasured instead of distance",
     )
 
     args = parser.parse_args()
@@ -257,31 +308,43 @@ def main():
     if args.words:
         for word in args.words:
             total_length, relative_length = get_word_traversal_length(word)
-            print(
-                f"{word}: total length: {keyboard_distance_to_cm(total_length)}cm "
-                f"relative length: {keyboard_distance_to_cm(relative_length)}cm"
-            )
-
+            print_word_distance(word, total_length, relative_length)
         return
 
     create_word_lists()
-    best_words: List[Tuple[float, str]] = []
-    best_limit = 10
+    best_words: List[Tuple[str, float, float]] = []
+
+    comparison_operator = operator.lt if args.lowest_first else operator.gt
 
     with open(SIMPLE_WORD_FILE_PATH, encoding="utf-8") as file:
         for word in file.readlines():
             word = word.strip()
-            # if not is_simple_word(word) or len(word) < 6:
-            #     continue
+            if len(word) < args.larger_than or len(word) > args.smaller_than:
+                continue
 
-            _, relative_length = get_word_traversal_length(word)
-            if not best_words or relative_length > best_words[-1][0]:
-                best_words.append((relative_length, word))
-                best_words.sort(key=lambda x: x[0], reverse=True)
-                if len(best_words) > best_limit:
+            total_distance, relative_distance = get_word_traversal_length(word)
+            if (
+                len(best_words) < args.word_count
+                or (
+                    args.relative
+                    and comparison_operator(relative_distance, best_words[-1][2])
+                )
+                or (
+                    not args.relative
+                    and comparison_operator(total_distance, best_words[-1][1])
+                )
+            ):
+                best_words.append((word, total_distance, relative_distance))
+                best_words.sort(
+                    key=lambda x: x[2] if args.relative else x[1],
+                    reverse=not args.lowest_first,
+                )
+                if len(best_words) > args.word_count:
                     best_words.pop()
 
-    print(best_words)
+        for group in best_words:
+            word, total_distance, relative_distance = group
+            print_word_distance(word, total_distance, relative_distance)
 
 
 if __name__ == "__main__":
