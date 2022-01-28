@@ -106,9 +106,13 @@ class Position2D:
         >>> Position2D(x=0.5, y=0.5).angle_between(Position2D(x=0, y=1))
         0.7853981633974484
         """
-        return math.acos(
-            self.dot_product(other) / (self.magnitude() * other.magnitude())
-        )
+        total_magnitude = self.magnitude() * other.magnitude()
+        if total_magnitude == 0:
+            return 0
+        try:
+            return math.acos(self.dot_product(other) / total_magnitude)
+        except ValueError:
+            return 0
 
 
 def get_letter_position(
@@ -160,6 +164,29 @@ def get_key_position_distance(
 
 
 get_key_position_distance.distance_cache = {}
+
+
+def get_three_key_angle(
+    key_1: str,
+    key_2: str,
+    key_3: str,
+    keyboard_type: KeyboardLayout = KeyboardLayout.QWERTY,
+) -> float:
+    angle = get_three_key_angle.angle_cache.get((key_1, key_2, key_3))
+    if angle is not None:
+        return angle
+    p1 = get_letter_position(key_1, keyboard_type)
+    p2 = get_letter_position(key_2, keyboard_type)
+    p3 = get_letter_position(key_3, keyboard_type)
+
+    v1 = p2 - p1
+    v2 = p3 - p2
+    angle = v1.angle_between(v2)
+    get_three_key_angle.angle_cache[(key_1, key_2, key_3)] = angle
+    return angle
+
+
+get_three_key_angle.angle_cache = {}
 
 
 def is_simple_word(word: str) -> bool:
@@ -217,6 +244,20 @@ def get_word_traversal_length(
     return total_length, total_length / gaps
 
 
+def get_word_traversal_angle(word: str) -> Tuple[float, float]:
+    if len(word) <= 1:
+        return 0, 0
+
+    total_angle = 0
+    gaps = 0
+    for previous_letter, current_letter, next_letter in zip(word, word[1:], word[2:]):
+        total_angle += get_three_key_angle(previous_letter, current_letter, next_letter)
+
+        if next_letter != current_letter:
+            gaps += 1
+
+    return total_angle, total_angle / gaps if gaps else 0
+
 
 def create_word_lists() -> None:
     """
@@ -247,7 +288,21 @@ def print_word_distance(word: str, total_length: float, relative_length: float) 
     """
     print(
         f"{word}: total length: {keyboard_distance_to_cm(total_length)}cm "
-        f"relative length: {keyboard_distance_to_cm(relative_length)}cm"
+        f"({keyboard_distance_to_cm(relative_length)}cm per movement)"
+    )
+
+
+def print_word_angle(word: str, total_angle: float, relative_angle: float) -> None:
+    """
+    Prints the distance for a single word
+    :param word:
+    :param total_length:
+    :param relative_length:
+    :return:
+    """
+    print(
+        f"{word}: total angle: {total_angle * 180 / math.pi:2f} degrees "
+        f"({relative_angle * 180 / math.pi:2f} degrees per movement)"
     )
 
 
@@ -322,7 +377,11 @@ def main():
             if len(word) < args.larger_than or len(word) > args.smaller_than:
                 continue
 
-            total_distance, relative_distance = get_word_traversal_length(word)
+            total_distance, relative_distance = (
+                get_word_traversal_angle(word)
+                if args.compare_angle
+                else get_word_traversal_length(word)
+            )
             if (
                 len(best_words) < args.word_count
                 or (
@@ -344,7 +403,10 @@ def main():
 
         for group in best_words:
             word, total_distance, relative_distance = group
-            print_word_distance(word, total_distance, relative_distance)
+            if args.compare_angle:
+                print_word_angle(word, total_distance, relative_distance)
+            else:
+                print_word_distance(word, total_distance, relative_distance)
 
 
 if __name__ == "__main__":
