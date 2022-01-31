@@ -9,7 +9,7 @@ import operator
 import os
 import shutil
 import urllib.request
-from itertools import combinations
+from itertools import combinations, groupby
 from typing import Tuple, List
 
 WORD_FILE_PATH = "words.txt"
@@ -176,6 +176,18 @@ def get_three_key_angle(
     key_3: str,
     keyboard_type: KeyboardLayout = KeyboardLayout.QWERTY,
 ) -> float:
+    """
+    Gets the angle formed by the triangle between three keys
+    :param key_1: The first key
+    :param key_2: The second key
+    :param key_3: The third key
+    :param keyboard_type: The type of keyboard the keys are on
+    :return: The angle in radians (pi if the keys all line up, 0 if the 1st and 3rd key are same)
+    >>> get_three_key_angle('q', 'w', 'e')
+    3.141592653589793
+    >>> get_three_key_angle('q', 'e', 'q')
+    0.0
+    """
     angle = get_three_key_angle.angle_cache.get((key_1, key_2, key_3))
     if angle is not None:
         return angle
@@ -184,7 +196,7 @@ def get_three_key_angle(
     p3 = get_letter_position(key_3, keyboard_type)
 
     v1 = p2 - p1
-    v2 = p3 - p2
+    v2 = p2 - p3
     angle = v1.angle_between(v2)
     get_three_key_angle.angle_cache[(key_1, key_2, key_3)] = angle
     return angle
@@ -251,10 +263,10 @@ def get_word_traversal_length(
 def get_word_traversal_angle(word: str) -> Tuple[float, float]:
     if len(word) <= 1:
         return 0, 0
-
+    grouped_word = [x[0] for x in groupby(word)]
     total_angle = 0
     gaps = 0
-    for previous_letter, current_letter, next_letter in zip(word, word[1:], word[2:]):
+    for previous_letter, current_letter, next_letter in zip(grouped_word, grouped_word[1:], grouped_word[2:]):
         total_angle += get_three_key_angle(previous_letter, current_letter, next_letter)
 
         if next_letter != current_letter:
@@ -311,7 +323,7 @@ def orientation(p: Position2D, q: Position2D, r: Position2D) -> int:
 
 # The main function that returns true if
 # the line segment 'p1q1' and 'p2q2' intersect.
-def do_intersect(p1, q1, p2, q2):
+def do_intersect(p1: Position2D, q1: Position2D, p2: Position2D, q2: Position2D):
     # Find the 4 orientations required for
     # the general and special cases
     o1 = orientation(p1, q1, p2)
@@ -345,26 +357,6 @@ def do_intersect(p1, q1, p2, q2):
     return False
 
 
-def ccw(A, B, C):
-    return (C.y - A.y) * (B.x - A.x) >= (B.y - A.y) * (C.x - A.x)
-
-
-# Return true if line segments AB and CD intersect
-def intersect(A, B, C, D):
-    return ccw(A, C, D) != ccw(B, C, D) and ccw(A, B, C) != ccw(A, B, D)
-
-
-assert not intersect(
-    Position2D(0, 0), Position2D(1, 0), Position2D(0, 0), Position2D(0, 1)
-)
-assert not intersect(
-    Position2D(-1, 0), Position2D(1, 0), Position2D(0, 0), Position2D(0, 1)
-)
-assert intersect(
-    Position2D(-1, 0), Position2D(1, 0), Position2D(0, -1), Position2D(0, 1)
-)
-
-
 def does_word_intersect_itself(
     word: str, keyboard_type: KeyboardLayout = KeyboardLayout.QWERTY
 ):
@@ -372,10 +364,10 @@ def does_word_intersect_itself(
     position_pairs = list(zip(positions, positions[1:]))
     position_combinations = list(combinations(position_pairs, 2))
     for pair_1, pair_2 in position_combinations:
-        # if len({*pair_1, *pair_2}) != 4:
-        #     continue
+        if len({*pair_1, *pair_2}) != 4:
+            continue
 
-        if intersect(pair_1[0], pair_1[1], pair_2[0], pair_2[1]):
+        if do_intersect(pair_1[0], pair_1[1], pair_2[0], pair_2[1]):
             # if intersect(pair_1[0], pair_1[1], pair_2[0], pair_2[1]):
             #     print(pair_1, pair_2)
             return True
