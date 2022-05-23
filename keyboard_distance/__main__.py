@@ -92,7 +92,7 @@ class Position2D:
         -1.0
         """
         return (self.x * other.y - self.y * other.x) / (
-                self.magnitude() * other.magnitude()
+            self.magnitude() * other.magnitude()
         )
 
     def magnitude(self) -> float:
@@ -120,7 +120,7 @@ class Position2D:
 
 
 def get_letter_position(
-        key: str, keyboard_type: KeyboardLayout = KeyboardLayout.QWERTY
+    key: str, keyboard_type: KeyboardLayout = KeyboardLayout.QWERTY
 ) -> Position2D:
     """
     Gets the Position2D of a key on a keyboard
@@ -147,7 +147,7 @@ get_letter_position.position_cache = {}
 
 
 def get_key_position_distance(
-        key_1: str, key_2: str, keyboard_type=KeyboardLayout.QWERTY
+    key_1: str, key_2: str, keyboard_type=KeyboardLayout.QWERTY
 ) -> float:
     """
     Gets the distance between two different keys
@@ -160,8 +160,8 @@ def get_key_position_distance(
     if distance is not None:
         return distance
     distance = (
-            get_letter_position(key_1, keyboard_type)
-            - get_letter_position(key_2, keyboard_type)
+        get_letter_position(key_1, keyboard_type)
+        - get_letter_position(key_2, keyboard_type)
     ).magnitude()
     get_key_position_distance.distance_cache[(key_1, key_2)] = distance
     return distance
@@ -171,10 +171,10 @@ get_key_position_distance.distance_cache = {}
 
 
 def get_three_key_angle(
-        key_1: str,
-        key_2: str,
-        key_3: str,
-        keyboard_type: KeyboardLayout = KeyboardLayout.QWERTY,
+    key_1: str,
+    key_2: str,
+    key_3: str,
+    keyboard_type: KeyboardLayout = KeyboardLayout.QWERTY,
 ) -> float:
     """
     Gets the angle formed by the triangle between three keys
@@ -215,7 +215,7 @@ def is_simple_word(word: str) -> bool:
 
 
 def keyboard_distance_to_cm(
-        distance: float, key_size: float = DEFAULT_KEY_SIZE_MM
+    distance: float, key_size: float = DEFAULT_KEY_SIZE_MM
 ) -> float:
     """
 
@@ -229,9 +229,9 @@ def keyboard_distance_to_cm(
 
 
 def get_word_traversal_length(
-        word: str,
-        include_same_letter_distance: bool = True,
-        keyboard_type=KeyboardLayout.QWERTY,
+    word: str,
+    include_same_letter_distance: bool = True,
+    keyboard_type=KeyboardLayout.QWERTY,
 ) -> Tuple[float, float]:
     """
     Gets the
@@ -272,7 +272,7 @@ def get_word_traversal_angle(word: str) -> Tuple[float, float]:
     total_angle = 0
     gaps = 0
     for previous_letter, current_letter, next_letter in zip(
-            grouped_word, grouped_word[1:], grouped_word[2:]
+        grouped_word, grouped_word[1:], grouped_word[2:]
     ):
         total_angle += get_three_key_angle(previous_letter, current_letter, next_letter)
 
@@ -289,7 +289,7 @@ def create_word_lists() -> None:
     if not os.path.exists(WORD_FILE_PATH):
         url = "https://raw.githubusercontent.com/dwyl/english-words/master/words.txt"
         with urllib.request.urlopen(url) as response, open(
-                WORD_FILE_PATH, "wb"
+            WORD_FILE_PATH, "wb"
         ) as out_file:
             shutil.copyfileobj(response, out_file)
 
@@ -301,26 +301,34 @@ def create_word_lists() -> None:
                         output_file.write(word)
 
 
-def on_segment(p: Position2D, q: Position2D, r: Position2D) -> bool:
-    return max(p.x, r.x) >= q.x >= min(p.x, r.x) and max(p.y, r.y) >= q.y >= min(
-        p.y, r.y
-    )
+def on_segment(line_start: Position2D, line_end: Position2D, point: Position2D) -> bool:
+    """
+    Finds whether the given position lies on the line
+    :param line_start: The start of the line
+    :param line_end: The end of the line
+    :param point: The point to see if it appears on the line
+    :return:
+    """
+    return max(line_start.x, point.x) >= line_end.x >= min(
+        line_start.x, point.x
+    ) and max(line_start.y, point.y) >= line_end.y >= min(line_start.y, point.y)
 
 
 def orientation(
-        start_point: Position2D, end_point: Position2D, third_point: Position2D
+    start_point: Position2D, end_point: Position2D, third_point: Position2D
 ) -> int:
-    # to find the orientation of an ordered triplet (p,q,r)
-    # function returns the following values:
-    # 0 : Collinear points
-    # 1 : Clockwise points
-    # 2 : Counterclockwise
-
-    # See https://www.geeksforgeeks.org/orientation-3-ordered-points/amp/
-    # for details of below formula.
+    """
+    Find the orientation of an ordered triplet
+    :param start_point: The start point of the line
+    :param end_point: The end position if the line
+    :param third_point: The third point to get the orientation
+    :return: 1 if the point is clockwise to the line, 2 if it is clockwise, otherwise 0
+    :notes: See https://www.geeksforgeeks.org/orientation-3-ordered-points/amp/
+    for details of below formula.
+    """
 
     val = (float(end_point.y - start_point.y) * (third_point.x - end_point.x)) - (
-            float(end_point.x - start_point.x) * (third_point.y - end_point.y)
+        float(end_point.x - start_point.x) * (third_point.y - end_point.y)
     )
     if val > 0:
         # Clockwise orientation
@@ -332,36 +340,49 @@ def orientation(
     return 0
 
 
-# The main function that returns true if
-# the line segment 'p1q1' and 'p2q2' intersect.
-def do_intersect(p1: Position2D, q1: Position2D, p2: Position2D, q2: Position2D):
+def do_intersect(
+    line_1_start: Position2D,
+    line_1_end: Position2D,
+    line_2_start: Position2D,
+    line_2_end: Position2D,
+):
+    """
+    Gets whether the given lines intersect
+    :param line_1_start: The start of the first line
+    :param line_1_end: The end of the first line
+    :param line_2_start: The start of the second line
+    :param line_2_end: The end of the second line
+    :return: True if the two lines intersect, otherwise False
+    :notes: If the lines overlap entirely, or share the same end or start point, that _isn't_
+    considered an intersection
+    """
     # Find the 4 orientations required for
     # the general and special cases
-    o1 = orientation(p1, q1, p2)
-    o2 = orientation(p1, q1, q2)
-    o3 = orientation(p2, q2, p1)
-    o4 = orientation(p2, q2, q1)
+    orientation_1 = orientation(line_1_start, line_1_end, line_2_start)
+    orientation_2 = orientation(line_1_start, line_1_end, line_2_end)
+    orientation_3 = orientation(line_2_start, line_2_end, line_1_start)
+    orientation_4 = orientation(line_2_start, line_2_end, line_1_end)
 
     # General case
-    if (o1 != o2) and (o3 != o4):
+    if orientation_1 != orientation_2 and orientation_3 != orientation_4:
         return True
 
     # Special Cases
 
     # p1 , q1 and p2 are collinear and p2 lies on segment p1q1
-    if (o1 == 0) and on_segment(p1, p2, q1):
+    if orientation_1 == 0 and on_segment(line_1_start, line_2_start, line_1_end):
         return True
 
     # p1 , q1 and q2 are collinear and q2 lies on segment p1q1
-    if (o2 == 0) and on_segment(p1, q2, q1):
+    if orientation_2 == 0 and on_segment(line_1_start, line_2_end, line_1_end):
         return True
 
     # p2 , q2 and p1 are collinear and p1 lies on segment p2q2
-    if (o3 == 0) and on_segment(p2, p1, q2):
+    if orientation_3 == 0 and on_segment(line_2_start, line_1_start, line_2_end):
         return True
 
     # p2 , q2 and q1 are collinear and q1 lies on segment p2q2
-    if (o4 == 0) and on_segment(p2, q1, q2):
+    if orientation_4 == 0 and on_segment(line_2_start, line_1_end, line_2_end):
         return True
 
     # If none of the cases
@@ -369,8 +390,15 @@ def do_intersect(p1: Position2D, q1: Position2D, p2: Position2D, q2: Position2D)
 
 
 def does_word_intersect_itself(
-        word: str, keyboard_type: KeyboardLayout = KeyboardLayout.QWERTY
+    word: str, keyboard_type: KeyboardLayout = KeyboardLayout.QWERTY
 ):
+    """
+    Finds whether the given word has any movements between its letters that intersect
+    with any other movements.
+    :param word: The word to search
+    :param keyboard_type: The type of keyboard (defaults to qwerty)
+    :return: True if any words intersect, otherwise False
+    """
     positions = [get_letter_position(key, keyboard_type) for key in word]
     position_pairs = list(zip(positions, positions[1:]))
     position_combinations = list(combinations(position_pairs, 2))
@@ -379,71 +407,8 @@ def does_word_intersect_itself(
             continue
 
         if do_intersect(pair_1[0], pair_1[1], pair_2[0], pair_2[1]):
-            # if intersect(pair_1[0], pair_1[1], pair_2[0], pair_2[1]):
-            #     print(pair_1, pair_2)
             return True
     return False
-
-
-"""
-// Given three collinear points p, q, r, the function checks if
-// point q lies on line segment 'pr'
-bool onSegment(Point p, Point q, Point r)
-{
-    if (q.x <= max(p.x, r.x) && q.x >= min(p.x, r.x) &&
-        q.y <= max(p.y, r.y) && q.y >= min(p.y, r.y))
-       return true;
-
-    return false;
-}
-
-// To find orientation of ordered triplet (p, q, r).
-// The function returns following values
-// 0 --> p, q and r are collinear
-// 1 --> Clockwise
-// 2 --> Counterclockwise
-int orientation(Point p, Point q, Point r)
-{
-    // See https://www.geeksforgeeks.org/orientation-3-ordered-points/
-    // for details of below formula.
-    int val = (q.y - p.y) * (r.x - q.x) -
-              (q.x - p.x) * (r.y - q.y);
-
-    if (val == 0) return 0;  // collinear
-
-    return (val > 0)? 1: 2; // clock or counterclock wise
-}
-
-// The main function that returns true if line segment 'p1q1'
-// and 'p2q2' intersect.
-bool do_intersect(Point p1, Point q1, Point p2, Point q2)
-{
-    // Find the four orientations needed for general and
-    // special cases
-    int o1 = orientation(p1, q1, p2);
-    int o2 = orientation(p1, q1, q2);
-    int o3 = orientation(p2, q2, p1);
-    int o4 = orientation(p2, q2, q1);
-
-    // General case
-    if (o1 != o2 && o3 != o4)
-        return true;
-
-    // Special Cases
-    // p1, q1 and p2 are collinear and p2 lies on segment p1q1
-    if (o1 == 0 && onSegment(p1, p2, q1)) return true;
-
-    // p1, q1 and q2 are collinear and q2 lies on segment p1q1
-    if (o2 == 0 && onSegment(p1, q2, q1)) return true;
-
-    // p2, q2 and p1 are collinear and p1 lies on segment p2q2
-    if (o3 == 0 && onSegment(p2, p1, q2)) return true;
-
-     // p2, q2 and q1 are collinear and q1 lies on segment p2q2
-    if (o4 == 0 && onSegment(p2, q1, q2)) return true;
-
-    return false; // Doesn't fall in any of the above cases
-}"""
 
 
 def print_word_distance(word: str, total_length: float, relative_length: float) -> None:
@@ -594,15 +559,15 @@ def main():
                 else get_word_traversal_length(word)
             )
             if (
-                    len(best_words) < args.word_count
-                    or (
+                len(best_words) < args.word_count
+                or (
                     args.relative
                     and comparison_operator(relative_distance, best_words[-1][2])
-            )
-                    or (
+                )
+                or (
                     not args.relative
                     and comparison_operator(total_distance, best_words[-1][1])
-            )
+                )
             ):
                 best_words.append((word, total_distance, relative_distance))
                 best_words.sort(
