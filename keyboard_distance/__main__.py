@@ -501,8 +501,14 @@ def main():
     args = parser.parse_args()
 
     if args.words:
-        for word in args.words:
+        words = set(args.words)
+        result = []
+        for word in words:
             total_length, relative_length = get_word_traversal_length(word)
+            result.append((total_length, relative_length, word))
+
+        result.sort(key=lambda x: x[0])
+        for total_length, relative_length, word in result:
             print_word_distance(word, total_length, relative_length)
         return
 
