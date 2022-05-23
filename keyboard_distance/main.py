@@ -191,13 +191,13 @@ def get_three_key_angle(
     angle = get_three_key_angle.angle_cache.get((key_1, key_2, key_3))
     if angle is not None:
         return angle
-    p1 = get_letter_position(key_1, keyboard_type)
-    p2 = get_letter_position(key_2, keyboard_type)
-    p3 = get_letter_position(key_3, keyboard_type)
+    pos1 = get_letter_position(key_1, keyboard_type)
+    pos2 = get_letter_position(key_2, keyboard_type)
+    pos3 = get_letter_position(key_3, keyboard_type)
 
-    v1 = p2 - p1
-    v2 = p2 - p3
-    angle = v1.angle_between(v2)
+    vec1 = pos2 - pos1
+    vec2 = pos2 - pos3
+    angle = vec1.angle_between(vec2)
     get_three_key_angle.angle_cache[(key_1, key_2, key_3)] = angle
     return angle
 
@@ -261,12 +261,19 @@ def get_word_traversal_length(
 
 
 def get_word_traversal_angle(word: str) -> Tuple[float, float]:
+    """
+    Gets the angle
+    :param word:
+    :return:
+    """
     if len(word) <= 1:
         return 0, 0
     grouped_word = [x[0] for x in groupby(word)]
     total_angle = 0
     gaps = 0
-    for previous_letter, current_letter, next_letter in zip(grouped_word, grouped_word[1:], grouped_word[2:]):
+    for previous_letter, current_letter, next_letter in zip(
+        grouped_word, grouped_word[1:], grouped_word[2:]
+    ):
         total_angle += get_three_key_angle(previous_letter, current_letter, next_letter)
 
         if next_letter != current_letter:
@@ -300,7 +307,9 @@ def on_segment(p: Position2D, q: Position2D, r: Position2D) -> bool:
     )
 
 
-def orientation(p: Position2D, q: Position2D, r: Position2D) -> int:
+def orientation(
+    start_point: Position2D, end_point: Position2D, third_point: Position2D
+) -> int:
     # to find the orientation of an ordered triplet (p,q,r)
     # function returns the following values:
     # 0 : Collinear points
@@ -310,7 +319,9 @@ def orientation(p: Position2D, q: Position2D, r: Position2D) -> int:
     # See https://www.geeksforgeeks.org/orientation-3-ordered-points/amp/
     # for details of below formula.
 
-    val = (float(q.y - p.y) * (r.x - q.x)) - (float(q.x - p.x) * (r.y - q.y))
+    val = (float(end_point.y - start_point.y) * (third_point.x - end_point.x)) - (
+        float(end_point.x - start_point.x) * (third_point.y - end_point.y)
+    )
     if val > 0:
         # Clockwise orientation
         return 1
