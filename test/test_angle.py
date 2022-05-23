@@ -1,6 +1,6 @@
 import unittest
 
-from keyboard_distance.main import get_word_traversal_angle
+from keyboard_distance.__main__ import get_word_traversal_angle
 
 
 class WordAngleTestCase(unittest.TestCase):

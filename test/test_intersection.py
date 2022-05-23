@@ -1,6 +1,6 @@
 import unittest
 
-from keyboard_distance.main import does_word_intersect_itself
+from keyboard_distance.__main__ import does_word_intersect_itself
 
 
 class SimpleIntersectTestCase(unittest.TestCase):
