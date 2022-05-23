@@ -443,39 +443,6 @@ def main():
     """
     Entry point
     """
-    # # Driver program to test above functions:
-    # p1 = Position2D(1, 1)
-    # q1 = Position2D(10, 1)
-    # p2 = Position2D(1, 2)
-    # q2 = Position2D(10, 2)
-    #
-    # if do_intersect(p1, q1, p2, q2):
-    #     print("Yes")
-    # else:
-    #     print("No")
-    #
-    # p1 = Position2D(10, 0)
-    # q1 = Position2D(0, 10)
-    # p2 = Position2D(0, 0)
-    # q2 = Position2D(10, 10)
-    #
-    # if do_intersect(p1, q1, p2, q2):
-    #     print("Yes")
-    # else:
-    #     print("No")
-    #
-    # p1 = Position2D(-5, -5)
-    # q1 = Position2D(0, 0)
-    # p2 = Position2D(1, 1)
-    # q2 = Position2D(10, 10)
-    #
-    # if do_intersect(p1, q1, p2, q2):
-    #     print("Yes")
-    # else:
-    #     print("No")
-    #
-    # print(does_word_intersect_itself("prip"))
-    # return
 
     parser = argparse.ArgumentParser(
         description="Finds the distance of a word on the keyboard"
